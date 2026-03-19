@@ -71,6 +71,11 @@ fact_trades
 
 ---
 
+## Data Dictionary
+See docs/data_dictionary.md
+
+---
+
 ## Example Queries
 
 ```sql
