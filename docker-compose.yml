@@ -1,0 +1,121 @@
+# ==============================
+# Services Definition
+# ==============================
+
+services:
+
+  # ==============================
+  # PostgreSQL Database Service
+  # ==============================
+
+  postgres:
+    # ใช้ PostgreSQL version 15
+    image: postgres:15
+
+    # ตั้งชื่อ container เพื่อเรียกใช้ง่าย
+    container_name: de_postgres
+
+    # กำหนดค่า environment สำหรับสร้าง database
+    environment:
+      POSTGRES_USER: de_user          # username
+      POSTGRES_PASSWORD: de_pass      # password
+      POSTGRES_DB: brokerage         # database name
+
+    # map port จาก container → local machine
+    # ใช้ port 5433 เพื่อหลีกเลี่ยงชนกับ postgres local
+    ports:
+      - "5433:5432"
+
+    # ใช้ volume เพื่อเก็บ data แบบ persistent
+    # (container ลบ แต่ data ยังอยู่)
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+
+  # ==============================
+  # Airflow Service (ETL Orchestrator)
+  # ==============================
+
+  airflow:
+    # ใช้ Airflow version 2.7.0
+    image: apache/airflow:2.7.0
+
+    # ตั้งชื่อ container
+    container_name: de_airflow
+
+    # กำหนด dependency → airflow จะรอ postgres start ก่อน
+    depends_on:
+      - postgres
+
+    # ==============================
+    # Environment Variables
+    # ==============================
+
+    environment:
+      # ใช้ SequentialExecutor (เหมาะกับ local / test)
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+
+      # ปิด example DAG
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+
+      # connection string ไป PostgreSQL
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://de_user:de_pass@postgres:5432/brokerage
+
+      # เพิ่ม path ให้ Python import scripts ได้
+      PYTHONPATH: /opt/airflow
+
+
+    # ==============================
+    # Volume Mounts
+    # ==============================
+
+    volumes:
+      # mount DAG เข้า container
+      - ./dags:/opt/airflow/dags
+
+      # mount data files (CSV)
+      - ./data:/opt/airflow/data
+
+      # mount ETL scripts
+      - ./scripts:/opt/airflow/scripts
+
+      # mount requirements สำหรับ install dependency
+      - ./requirements.txt:/opt/airflow/requirements.txt
+
+
+    # ==============================
+    # Port Mapping
+    # ==============================
+
+    # เปิด Airflow Web UI ที่ port 8080
+    ports:
+      - "8080:8080"
+
+
+    # ==============================
+    # Container Startup Command
+    # ==============================
+
+    command: >
+      bash -c "
+      # กำหนด path ของ Airflow
+      export AIRFLOW_HOME=/opt/airflow &&
+
+      # ติดตั้ง Python dependencies
+      pip install --no-cache-dir -r /opt/airflow/requirements.txt &&
+
+      # รัน scheduler (background)
+      airflow scheduler &
+
+      # รัน webserver (foreground → main process)
+      exec airflow webserver
+      "
+
+
+# ==============================
+# Volume Definition
+# ==============================
+
+volumes:
+  # ใช้เก็บข้อมูล PostgreSQL แบบ persistent
+  postgres_data:
