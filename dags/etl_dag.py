@@ -59,7 +59,7 @@ default_args = {
 with DAG(
     dag_id='etl_pipeline',        # ชื่อ DAG ที่จะแสดงใน UI
     default_args=default_args,    # ใช้ config ด้านบน
-    schedule_interval=None,       # ไม่ตั้ง schedule (run manual)
+    schedule_interval="0 */3 * * *", # ทดสอบตั้ง schedule ให้ run ทุกๆ 3 ชั่วโมง หรือสามารถ run manual ได้
     catchup=False                # ไม่ย้อนรันย้อนหลัง
 ) as dag:
 
